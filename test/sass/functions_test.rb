@@ -1181,6 +1181,26 @@ MSG
     assert_equal("1px", evaluate("if(true, 1px, 2px)"))
     assert_equal("2px", evaluate("if(false, 1px, 2px)"))
     assert_equal("2px", evaluate("if(null, 1px, 2px)"))
+    assert_equal("1px", evaluate("if(true, 1px, $broken)"))
+    assert_equal("1px", evaluate("if(false, $broken, 1px)"))
+    assert_equal("1px", evaluate("if(false, $if-true: $broken, $if-false: 1px)"))
+    assert_equal("1px", evaluate("if(true, $if-true: 1px, $if-false: $broken)"))
+    assert_equal(<<CSS,render(<<SASS))
+.if {
+  result: yay; }
+CSS
+.if
+  $something: yay
+  result: if(true, $if-true: $something, $if-false: $broken)
+SASS
+    assert_equal(<<CSS,render(<<SASS))
+.if {
+  result: 1px; }
+CSS
+.if
+  $splat: 1px, 2px
+  result: if(true, $splat...)
+SASS
   end
 
   def test_counter
@@ -1459,6 +1479,11 @@ WARNING
     flunk("Error message expected but not raised: #{message}")
   rescue Sass::SyntaxError => e
     assert_equal(message, e.message)
+  end
+
+  def render(sass, options = {})
+    munge_filename options
+    Sass::Engine.new(sass, options).render
   end
 
 end

@@ -269,6 +269,9 @@ maps instead.
   `e`, and `f`; and then `g`, `h`, and `i`. For more information, see
   {file:SASS_REFERENCE.md#each-multi-assign the `@each` reference}.
 
+* The `if()` function now only evaluates the argument corresponding to
+  the value of the first argument.
+
 ### Backwards Incompatibilities -- Must Read!
 
 * Sass will now throw an error when `@extend` is used to extend a selector
