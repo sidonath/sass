@@ -284,7 +284,7 @@ module Sass::Script
     # @attr args [Array<Symbol>] The names of the arguments to the function.
     # @attr var_args [Boolean] Whether the function takes a variable number of arguments.
     # @attr var_kwargs [Boolean] Whether the function takes an arbitrary set of keyword arguments.
-    Signature = Struct.new(:args, :var_args, :var_kwargs)
+    Signature = Struct.new(:args, :delayed_args, :var_args, :var_kwargs)
 
     # Declare a Sass signature for a Ruby-defined function.
     # This includes the names of the arguments,
@@ -321,9 +321,23 @@ module Sass::Script
     #   In addition, if this is true and `:var_args` is not,
     #   Sass will ensure that the last argument passed is a hash.
     def self.declare(method_name, args, options = {})
+      delayed_args = []
+      args = args.map do |a|
+        a = a.to_s
+        if a[0] == ?&
+          a = a[1..-1]
+          delayed_args << a
+        end
+        a
+      end
+      # We don't expose this functionality except to certain builtin methods.
+      if delayed_args.any? && method_name != :if
+        raise ArgumentError.new("Delayed arguments not allowed for method #{method_name}")
+      end
       @signatures[method_name] ||= []
       @signatures[method_name] << Signature.new(
-        args.map {|s| s.to_s},
+        args,
+        delayed_args,
         options[:var_args],
         options[:var_kwargs])
     end
@@ -380,14 +394,23 @@ module Sass::Script
       # @return [Environment]
       attr_reader :environment
 
+      # The environment of the caller.
+      #
+      # Only set when the function has delayed argument evaluation.
+      #
+      # @return [Environment]
+      attr_reader :environment_of_caller
+
       # The options hash for the {Sass::Engine} that is processing the function call
       #
       # @return [{Symbol => Object}]
       attr_reader :options
 
       # @param environment [Environment] See \{#environment}
-      def initialize(environment)
+      # @param environment_of_caller The environment of the caller.
+      def initialize(environment, environment_of_caller = nil)
         @environment = environment
+        @environment_of_caller = environment_of_caller
         @options = environment.options
       end
 
@@ -452,6 +475,21 @@ module Sass::Script
           raise ArgumentError.new("Expected $#{name} to be an integer but got #{number}")
         else
           raise ArgumentError.new("Expected #{number} to be an integer")
+        end
+      end
+
+      # Performs a node that has been delayed for execution
+      #
+      # @param node [Sass::Script::Tree::Node, Sass::Script::Value::Base] When a tree node, the
+      #   node is performed in the environment of the caller. When a value (happens when the value
+      #   had to be performed already -- like for a splat), it is simply returned.
+      # @param node [Sass::Environment] The environment within which to perform the node.
+      #   Defaults to the environment of the caller.
+      def perform(node, env = environment_of_caller)
+        if node.is_a?(Sass::Script::Value::Base)
+          node
+        else
+          node.perform(env)
         end
       end
     end

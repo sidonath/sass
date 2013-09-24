@@ -114,9 +114,26 @@ module Sass::Script::Tree
     # @return [Sass::Script::Value] The SassScript object that is the value of the function call
     # @raise [Sass::SyntaxError] if the function call raises an ArgumentError
     def _perform(environment)
-      args = @args.map {|a| a.perform(environment)}
+      has_delayed_arguments = false
+      signature = Sass::Script::Functions.signature(name.to_sym, @args.size, @keywords.size)
+      args = []
+      @args.each_with_index do |a, i|
+        if signature && signature.delayed_args.include?(signature.args[i])
+          has_delayed_arguments = true
+          args << a
+        else
+          args << a.perform(environment)
+        end
+      end
       splat = Sass::Tree::Visitors::Perform.perform_splat(@splat, @kwarg_splat, environment)
-      keywords = Sass::Util.map_hash(@keywords) {|k, v| [k, v.perform(environment)]}
+      keywords = Sass::Util.map_hash(@keywords) do |k, v|
+        if signature && signature.delayed_args.include?(k.tr('-', '_'))
+          has_delayed_arguments = true
+        else
+          v = v.perform(environment)
+        end
+        [k, v]
+      end
       if fn = environment.function(@name)
         return perform_sass_fn(fn, args, keywords, splat, environment)
       end
@@ -128,7 +145,10 @@ module Sass::Script::Tree
         opts(to_literal(args))
       else
         local_environment = Sass::Environment.new(environment.global_env, environment.options)
-        opts(Sass::Script::Functions::EvaluationContext.new(local_environment).send(ruby_name, *args))
+        evaluation_context =
+          Sass::Script::Functions::EvaluationContext.new(local_environment,
+                                                         (environment if has_delayed_arguments))
+        opts(evaluation_context.send(ruby_name, *args))
       end
     rescue ArgumentError => e
       message = e.message
