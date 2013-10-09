@@ -56,12 +56,8 @@ module Sass
     # The options passed to the Sass Engine.
     attr_reader :options
 
-    # [Environment] The caller environment
     attr_writer :caller
-
-    # [Environment] The content environment
     attr_writer :content
-    attr_writer :selector
 
     # variable
     # Script::Value
@@ -92,9 +88,13 @@ module Sass
 
     # The content passed to this environment. This is naturally only set
     # for mixin body environments with content passed in.
-    # @return {Environment?}
+    #
+    # @return {[Array<Sass::Tree::Node>, Environment]?} The content nodes and
+    #   the environment they should be evaluated in.
     def content
-      @content || (@parent && @parent.content)
+      return @content if @content
+      return @parent.content if @parent
+      nil
     end
 
     # The selector for the current CSS rule, or nil if there is no
@@ -103,10 +103,26 @@ module Sass
     # @return [Selector::CommaSequence?] The current selector, with any
     #   nesting fully resolved.
     def selector
-      parent_selector = @caller ? @caller.selector : (@parent && @parent.selector)
-      return parent_selector unless @selector
-      return @selector.resolve_parent_refs(parent_selector) if parent_selector
-      @selector
+      return if @no_selector
+      return @selector if @selector
+      return @caller.selector if @caller
+      return @parent.selector if @parent
+      nil
+    end
+
+    def selector=(value)
+      @selector = value
+      @no_selector = false
+    end
+
+    # Mark this environment as having no selector information. Unlike setting
+    # {#selector} to nil, this indicates that this environment should not
+    # inherit its {#parent}'s or {#caller}'s selector.
+    #
+    # This will be overwritten if {#selector} is set.
+    def no_selector!
+      @selector = nil
+      @no_selector = true
     end
 
     # The top-level Environment object.

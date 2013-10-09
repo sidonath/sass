@@ -21,6 +21,7 @@ module Sass
         begin
           parse
         rescue Exception => e
+          puts e.backtrace
           raise e if @options[:trace] || e.is_a?(SystemExit)
 
           $stderr.print "#{e.class}: " unless e.class == RuntimeError

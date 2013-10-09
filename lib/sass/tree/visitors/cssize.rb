@@ -194,10 +194,10 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   # Resolves parent references and nested selectors,
   # and updates the indentation of the rule node based on the nesting level.
   def visit_rule(node)
-    parent_resolved_rules = parent.is_a?(Sass::Tree::RuleNode) ? parent.resolved_rules : nil
+    #parent_resolved_rules = parent.is_a?(Sass::Tree::RuleNode) ? parent.resolved_rules : nil
     # It's possible for resolved_rules to be set
     # if we've duplicated this node during @media bubbling
-    node.resolved_rules ||= node.parsed_rules.resolve_parent_refs(parent_resolved_rules)
+    #node.resolved_rules ||= node.parsed_rules.resolve_parent_refs(parent_resolved_rules)
 
     yield
 
@@ -216,6 +216,7 @@ class Sass::Tree::Visitors::Cssize < Sass::Tree::Visitors::Base
   end
 
   def visit_atroot(node)
+    #with_parent(parent) {node.children.map {|c| visit(c)}}
     yield.children
   end
 
